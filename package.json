@@ -5,12 +5,13 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev":"nodemon server.js",
-    "build":"npm install"
+    "dev": "nodemon server.js",
+    "build": "npm install"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "cors": "^2.8.5",
     "http": "^0.0.1-security",
     "socket.io": "^4.7.5"
   }
