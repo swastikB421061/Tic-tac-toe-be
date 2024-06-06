@@ -7,7 +7,8 @@ const httpServer = createServer();
 
 
 const io = new Server(httpServer, {
-  cors: "https://tic-tac-toe-mitx.netlify.app",
+  cors: "https://tic-tac-toe-mitx.netlify.app/",
+  methods: ["GET", "POST"]
 });
 
 const allUsers = {};
