@@ -8,9 +8,11 @@ const httpServer = createServer();
 
 
 const io = new Server(httpServer, {
-  cors: "*",
-  methods: ["GET", "POST"]
+    cors: {
+        origin: "https://tic-tac-toe-mitx.netlify.app"
+      }
 });
+
 
 const allUsers = {};
 const rooms = {};
