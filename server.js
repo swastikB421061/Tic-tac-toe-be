@@ -1,23 +1,24 @@
 const { createServer } = require("http");
 const { Server } = require("socket.io");
-const cors = require('cors');
-const express = require('express');
+const cors = require("cors");
+const express = require("express");
 
 const app = express();
 const httpServer = createServer(app);
 
-// Apply CORS middleware
-app.use(cors({
+app.use(
+  cors({
     origin: ["https://tic-tac-toe-mitx.netlify.app", "http://localhost:5173"],
     methods: ["GET", "POST"],
-    allowedHeaders: ["Content-Type"]
-}));
+    allowedHeaders: ["Content-Type"],
+  })
+);
 
 const io = new Server(httpServer, {
-    cors: {
-        origin: ["https://tic-tac-toe-mitx.netlify.app", "http://localhost:5173"],
-        methods: ["GET", "POST"]
-    }
+  cors: {
+    origin: ["https://tic-tac-toe-mitx.netlify.app", "http://localhost:5173"],
+    methods: ["GET", "POST"],
+  },
 });
 
 const allUsers = {};
@@ -63,6 +64,14 @@ io.on("connection", (socket) => {
       player1.socket.on("playerMoveFromClient", handlePlayerMove(player2));
       player2.socket.on("playerMoveFromClient", handlePlayerMove(player1));
 
+      player1.socket.on("chatsend", function (data) {
+        player2.socket.emit("chat-for-player", {text:data.text,opp:data.opp});
+      });
+      player2.socket.on("chatsend", function (data) {
+        player1.socket.emit("chat-for-player", {text:data.text,opp:data.opp});
+      });
+
+
     } else if (rooms[roomId].length > 2) {
       const extraPlayer = rooms[roomId].pop();
       extraPlayer.socket.emit("RoomFull");
@@ -70,6 +79,8 @@ io.on("connection", (socket) => {
       player1.socket.emit("WaitingForOpponent");
     }
   });
+
+
 
   socket.on("disconnect", () => {
     const player1 = allUsers[socket.id];
@@ -80,7 +91,9 @@ io.on("connection", (socket) => {
     player1.playing = false;
 
     if (rooms[roomId]) {
-      rooms[roomId] = rooms[roomId].filter(user => user.socket.id !== socket.id);
+      rooms[roomId] = rooms[roomId].filter(
+        (user) => user.socket.id !== socket.id
+      );
 
       if (rooms[roomId].length === 1) {
         const player2 = rooms[roomId][0];
@@ -107,5 +120,5 @@ io.on("connection", (socket) => {
 });
 
 httpServer.listen(3000, () => {
-  console.log("chal raha hai mai12");
+  console.log("chal raha hai mai");
 });
