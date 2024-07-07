@@ -23,6 +23,7 @@ const io = new Server(httpServer, {
 
 const allUsers = {};
 const rooms = {};
+const waitingPlayers = [];
 
 io.on("connection", (socket) => {
   allUsers[socket.id] = {
@@ -36,51 +37,84 @@ io.on("connection", (socket) => {
 
     const player1 = allUsers[socket.id];
     player1.playerName = playerName;
-    player1.roomId = roomId;
 
-    if (!rooms[roomId]) {
-      rooms[roomId] = [];
-    }
+    if (roomId) {
+      // Room-based matchmaking
+      player1.roomId = roomId;
 
-    rooms[roomId].push(player1);
+      if (!rooms[roomId]) {
+        rooms[roomId] = [];
+      }
 
-    if (rooms[roomId].length === 2) {
-      const [player1, player2] = rooms[roomId];
-      console.log(player1.playerName, player2.playerName);
+      rooms[roomId].push(player1);
 
-      player1.playing = true;
-      player2.playing = true;
+      if (rooms[roomId].length === 2) {
+        const [player1, player2] = rooms[roomId];
+        console.log(player1.playerName, player2.playerName);
 
-      player1.socket.emit("OpponentFound", {
-        opponentName: player2.playerName,
-        playingAs: "circle",
-      });
+        player1.playing = true;
+        player2.playing = true;
 
-      player2.socket.emit("OpponentFound", {
-        opponentName: player1.playerName,
-        playingAs: "cross",
-      });
+        player1.socket.emit("OpponentFound", {
+          opponentName: player2.playerName,
+          playingAs: "circle",
+        });
 
-      player1.socket.on("playerMoveFromClient", handlePlayerMove(player2));
-      player2.socket.on("playerMoveFromClient", handlePlayerMove(player1));
+        player2.socket.emit("OpponentFound", {
+          opponentName: player1.playerName,
+          playingAs: "cross",
+        });
 
-      player1.socket.on("chatsend", function (data) {
-        player2.socket.emit("chat-for-player", {text:data.text,opp:data.opp});
-      });
-      player2.socket.on("chatsend", function (data) {
-        player1.socket.emit("chat-for-player", {text:data.text,opp:data.opp});
-      });
+        player1.socket.on("playerMoveFromClient", handlePlayerMove(player2));
+        player2.socket.on("playerMoveFromClient", handlePlayerMove(player1));
 
+        player1.socket.on("chatsend", (data) => {
+          player2.socket.emit("chat-for-player", { text: data.text, opp: data.opp });
+        });
+        player2.socket.on("chatsend", (data) => {
+          player1.socket.emit("chat-for-player", { text: data.text, opp: data.opp });
+        });
 
-    } else if (rooms[roomId].length > 2) {
-      const extraPlayer = rooms[roomId].pop();
-      extraPlayer.socket.emit("RoomFull");
+      } else if (rooms[roomId].length > 2) {
+        const extraPlayer = rooms[roomId].pop();
+        extraPlayer.socket.emit("RoomFull");
+      } else {
+        player1.socket.emit("WaitingForOpponent");
+      }
     } else {
-      player1.socket.emit("WaitingForOpponent");
+      // Random matchmaking
+      if (waitingPlayers.length > 0) {
+        const player2 = waitingPlayers.shift();
+
+        player1.playing = true;
+        player2.playing = true;
+
+        player1.socket.emit("OpponentFound", {
+          opponentName: player2.playerName,
+          playingAs: "circle",
+        });
+
+        player2.socket.emit("OpponentFound", {
+          opponentName: player1.playerName,
+          playingAs: "cross",
+        });
+
+        player1.socket.on("playerMoveFromClient", handlePlayerMove(player2));
+        player2.socket.on("playerMoveFromClient", handlePlayerMove(player1));
+
+        player1.socket.on("chatsend", (data) => {
+          player2.socket.emit("chat-for-player", { text: data.text, opp: data.opp });
+        });
+        player2.socket.on("chatsend", (data) => {
+          player1.socket.emit("chat-for-player", { text: data.text, opp: data.opp });
+        });
+
+      } else {
+        waitingPlayers.push(player1);
+        player1.socket.emit("WaitingForOpponent");
+      }
     }
   });
-
-
 
   socket.on("disconnect", () => {
     const player1 = allUsers[socket.id];
@@ -90,7 +124,7 @@ io.on("connection", (socket) => {
     player1.online = false;
     player1.playing = false;
 
-    if (rooms[roomId]) {
+    if (roomId && rooms[roomId]) {
       rooms[roomId] = rooms[roomId].filter(
         (user) => user.socket.id !== socket.id
       );
@@ -99,11 +133,15 @@ io.on("connection", (socket) => {
         const player2 = rooms[roomId][0];
         player2.socket.emit("opponentLeftMatch");
         player2.playing = false;
-        rooms[roomId] = [];
       }
 
       if (rooms[roomId].length === 0) {
         delete rooms[roomId];
+      }
+    } else {
+      const index = waitingPlayers.indexOf(player1);
+      if (index > -1) {
+        waitingPlayers.splice(index, 1);
       }
     }
 
